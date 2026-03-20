@@ -33,15 +33,14 @@ availability = st.selectbox("Availability", data_columns["availability_columns"]
 # -------------------------------
 if st.button("Predict"):
 
-    # create input dictionary
     input_dict = {}
 
-    # numeric features (IMPORTANT: match training names)
+    # numeric
     input_dict["total_sqft"] = sqft
     input_dict["bath"] = bath
     input_dict["bhk"] = bhk
 
-    # initialize categorical columns
+    # categorical (initialize all to 0)
     for col in data_columns["location_columns"]:
         input_dict[col] = 0
 
@@ -51,17 +50,30 @@ if st.button("Predict"):
     for col in data_columns["availability_columns"]:
         input_dict[col] = 0
 
-    # set selected values
-    input_dict[location] = 1
-    input_dict[area] = 1
-    input_dict[availability] = 1
+    # set selected = 1
+    if location in input_dict:
+        input_dict[location] = 1
+
+    if area in input_dict:
+        input_dict[area] = 1
+
+    if availability in input_dict:
+        input_dict[availability] = 1
 
     # convert to dataframe
     df = pd.DataFrame([input_dict])
 
-    try:
-        prediction = model.predict(df)[0]
-        st.success(f"Estimated Price: ₹ {round(prediction,2)} Lakhs")
-    except Exception as e:
-        st.error("Prediction failed. Check feature alignment.")
-        st.write(e)
+    # 🚨 IMPORTANT FIX: match training feature count
+    expected_features = model.get_booster().num_features()
+
+    if df.shape[1] > expected_features:
+        df = df.iloc[:, :expected_features]
+    elif df.shape[1] < expected_features:
+        # add missing columns
+        for i in range(expected_features - df.shape[1]):
+            df[f"missing_{i}"] = 0
+
+    # prediction
+    prediction = model.predict(df)[0]
+
+    st.success(f"Estimated Price: ₹ {round(prediction,2)} Lakhs")
